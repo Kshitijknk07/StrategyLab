@@ -139,8 +139,10 @@ cp .env.example .env
 ### 3. Ingest a fixture session
 
 ```bash
-.venv/bin/strategylab-worker ingest fixture 2024 Bahrain_GP sakhir --fixture-path tests/fixtures/bahrain_2024_fixture.json
+.venv/bin/strategylab-worker ingest fixture 2024 italian_gp monza --fixture-path /path/to/session_bundle.json
 ```
+
+The fixture JSON must match the `SessionBundle` contract described in [docs/data-contracts.md](docs/data-contracts.md). The synthetic bundle used by the test suite is a good starting reference in [tests/conftest.py](/home/kshitij/Documents/StrategyLab/tests/conftest.py).
 
 ### 4. Train local models
 
@@ -282,4 +284,3 @@ What is intentionally deferred:
 - [Data Contracts](docs/data-contracts.md)
 - [Model Cards](docs/model-cards.md)
 - [Simulator Notes](docs/simulator.md)
-

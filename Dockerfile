@@ -1,14 +1,17 @@
-FROM python:3.13-slim
+FROM python:3.12-slim
 
 WORKDIR /app
+
+ENV PYTHONDONTWRITEBYTECODE=1
+ENV PYTHONUNBUFFERED=1
 
 COPY pyproject.toml README.md ./
 COPY src ./src
 
-RUN python -m pip install --upgrade pip && \
-    pip install .
+RUN pip install --no-cache-dir --upgrade pip && \
+    pip install --no-cache-dir -e .
 
 EXPOSE 8000
 
-CMD ["python", "-m", "strategylab.apps.api.main"]
+CMD ["strategylab-api"]
 
