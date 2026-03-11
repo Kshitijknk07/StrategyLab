@@ -1,0 +1,64 @@
+[build-system]
+requires = ["hatchling>=1.25"]
+build-backend = "hatchling.build"
+
+[project]
+name = "strategylab"
+version = "0.1.0"
+description = "Backend-first Formula 1 race strategy intelligence platform."
+readme = "README.md"
+requires-python = ">=3.12,<3.14"
+license = { text = "MIT" }
+authors = [
+  { name = "StrategyLab" }
+]
+dependencies = [
+  "fastapi>=0.115,<1.0",
+  "uvicorn>=0.34,<1.0",
+  "pydantic>=2.10,<3.0",
+  "pydantic-settings>=2.7,<3.0",
+  "numpy>=2.2,<3.0",
+  "pandas>=2.2,<3.0",
+  "pyarrow>=19.0,<20.0",
+  "scikit-learn>=1.6,<2.0",
+  "joblib>=1.4,<2.0",
+  "httpx>=0.28,<1.0",
+]
+
+[project.optional-dependencies]
+sources = [
+  "fastf1>=3.6,<4.0",
+]
+ops = [
+  "sqlalchemy>=2.0,<3.0",
+  "psycopg[binary]>=3.2,<4.0",
+  "redis>=5.2,<6.0",
+  "mlflow-skinny>=2.20,<3.0",
+]
+dev = [
+  "pytest>=8.3,<9.0",
+  "pytest-cov>=6.0,<7.0",
+  "pytest-asyncio>=0.25,<1.0",
+  "ruff>=0.11,<1.0",
+]
+
+[project.scripts]
+strategylab-api = "strategylab.apps.api.main:run"
+strategylab-worker = "strategylab.apps.worker.cli:main"
+strategylab-trainer = "strategylab.apps.trainer.cli:main"
+
+[tool.hatch.build.targets.wheel]
+packages = ["src/strategylab"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+pythonpath = ["src"]
+addopts = "-q"
+
+[tool.ruff]
+line-length = 100
+target-version = "py312"
+
+[tool.ruff.lint]
+select = ["E", "F", "I", "B", "UP", "N", "PTH"]
+
