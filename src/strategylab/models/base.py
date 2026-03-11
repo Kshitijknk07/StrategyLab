@@ -9,10 +9,10 @@ from uuid import uuid4
 import numpy as np
 import pandas as pd
 from sklearn.compose import ColumnTransformer
+from sklearn.ensemble import GradientBoostingRegressor
 from sklearn.impute import SimpleImputer
 from sklearn.metrics import mean_absolute_error, mean_squared_error
 from sklearn.pipeline import Pipeline
-from sklearn.ensemble import GradientBoostingRegressor
 from sklearn.preprocessing import OneHotEncoder
 
 from strategylab.contracts import EvaluationMetric, EvaluationReport, ModelPrediction, PredictionInterval
@@ -74,8 +74,14 @@ class BaseTabularModel(ABC):
             model_version=self._new_version(),
             dataset_version=dataset_version,
             metrics=[
-                EvaluationMetric(name="mae", value=float(mean_absolute_error(validation_frame[target], validation_predictions))),
-                EvaluationMetric(name="rmse", value=float(sqrt(mean_squared_error(validation_frame[target], validation_predictions)))),
+                EvaluationMetric(
+                    name="mae",
+                    value=float(mean_absolute_error(validation_frame[target], validation_predictions)),
+                ),
+                EvaluationMetric(
+                    name="rmse",
+                    value=float(sqrt(mean_squared_error(validation_frame[target], validation_predictions))),
+                ),
             ],
             notes=[f"Trained on {len(train_frame)} rows; validated on {len(validation_frame)} rows."],
         )

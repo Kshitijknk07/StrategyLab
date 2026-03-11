@@ -31,4 +31,3 @@ class BaselinePaceModel(BaseTabularModel):
             "wet_track_flag",
             "track_status_is_green",
         ]
-

@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from datetime import datetime
+from datetime import UTC, datetime
 from enum import StrEnum
 from typing import Literal
 
@@ -71,7 +71,7 @@ class DatasetManifest(BaseModel):
     dataset_version: str
     layer: DatasetLayer
     description: str
-    created_at: datetime = Field(default_factory=datetime.utcnow)
+    created_at: datetime = Field(default_factory=lambda: datetime.now(UTC))
     record_count: int = Field(default=0, ge=0)
     source_sessions: list[RaceKey] = Field(default_factory=list)
     feature_columns: list[str] = Field(default_factory=list)
@@ -90,7 +90,7 @@ class EvaluationReport(BaseModel):
     dataset_version: str
     metrics: list[EvaluationMetric]
     notes: list[str] = Field(default_factory=list)
-    created_at: datetime = Field(default_factory=datetime.utcnow)
+    created_at: datetime = Field(default_factory=lambda: datetime.now(UTC))
 
 
 class ModelPrediction(BaseModel):
@@ -266,10 +266,9 @@ class IngestionRefreshRequest(BaseModel):
 class TrainRequest(BaseModel):
     dataset_version: str
     target_column: str | None = None
-    model_config: dict[str, str | float | int | bool] = Field(default_factory=dict)
+    training_config: dict[str, str | float | int | bool] = Field(default_factory=dict)
 
 
 class ModelEvaluateRequest(BaseModel):
     dataset_version: str
     model_version: str
-

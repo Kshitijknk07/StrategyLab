@@ -28,4 +28,3 @@ class StrategyRecommender:
             assumptions=assumptions,
             confidence_notes=confidence_notes,
         )
-

@@ -2,7 +2,6 @@
 
 from strategylab.contracts import (
     Compound,
-    DatasetLayer as DataLayer,
     DriverLapRecord,
     EvaluationReport,
     IngestionRefreshRequest,
@@ -11,7 +10,6 @@ from strategylab.contracts import (
     PitEvent,
     PitStopPlan,
     PredictionInterval,
-    RaceKey as RaceSessionKey,
     RaceTimelineEvent,
     SessionType,
     SimulationInput,
@@ -19,11 +17,19 @@ from strategylab.contracts import (
     StintRecord,
     StrategyCandidate,
     StrategyRecommendation,
-    StrategyResult as StrategySimulationResult,
     TrackProfile,
     TrackStatus,
     TrainRequest,
     WeatherSample,
+)
+from strategylab.contracts import (
+    DatasetLayer as DataLayer,
+)
+from strategylab.contracts import (
+    RaceKey as RaceSessionKey,
+)
+from strategylab.contracts import (
+    StrategyResult as StrategySimulationResult,
 )
 
 __all__ = [

@@ -10,4 +10,3 @@ class StrategyOptimizer:
 
     def compare(self, simulation_input: SimulationInput) -> list[StrategyResult]:
         return self.simulator.compare_strategies(simulation_input)
-

@@ -18,4 +18,3 @@ class CandidateScore:
     overcut_gain_seconds: float
     first_pit_mean: float
     first_pit_stddev: float
-

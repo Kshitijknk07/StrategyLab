@@ -43,7 +43,7 @@ class RaceSimulationContext:
         target_driver: str,
         target_strategy: StrategyCandidate,
         participants: list[SimulationParticipant],
-    ) -> "RaceSimulationContext":
+    ) -> RaceSimulationContext:
         weather_map = {sample.lap_number: sample for sample in weather_samples}
         rival_strategies = {
             participant.driver: _default_strategy(track.total_laps, participant.starting_compound)
@@ -86,4 +86,3 @@ def _default_strategy(total_laps: int, starting_compound: Compound) -> list[tupl
         pit_lap = max(min(total_laps // 2, 25), 14)
     next_compound = Compound.HARD if starting_compound is not Compound.HARD else Compound.MEDIUM
     return [(pit_lap, next_compound)]
-

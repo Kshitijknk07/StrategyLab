@@ -3,4 +3,3 @@
 from strategylab.services.optimizer.service import StrategyOptimizer
 
 __all__ = ["StrategyOptimizer"]
-

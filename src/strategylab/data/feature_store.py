@@ -35,7 +35,7 @@ class FeatureStore:
         )
 
     def load_dataset(self, dataset_version: str) -> tuple[pd.DataFrame, DatasetManifest]:
-        manifest = self.storage.manifests.load_dataset_manifest(dataset_version)
+        manifest = self.storage.manifests.load_dataset_manifest(dataset_version, layer=DatasetLayer.FEATURES.value)
         return self.storage.read_dataframe(manifest), manifest
 
 
@@ -44,4 +44,3 @@ def _extract_race_keys(records: list[DriverLapRecord]) -> list[RaceKey]:
     for record in records:
         seen.setdefault(record.race_key.slug, record.race_key)
     return list(seen.values())
-

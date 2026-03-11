@@ -1,2 +1,1 @@
 """Tyre degradation models."""
-

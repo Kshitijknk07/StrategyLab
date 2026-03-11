@@ -1,2 +1,1 @@
 """StrategyLab application entrypoints."""
-

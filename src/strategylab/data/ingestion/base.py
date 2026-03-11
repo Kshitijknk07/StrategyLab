@@ -4,7 +4,15 @@ from abc import ABC, abstractmethod
 
 from pydantic import BaseModel, Field
 
-from strategylab.contracts import DriverLapRecord, PitEvent, RaceKey, RaceTimelineEvent, StintRecord, TrackProfile, WeatherSample
+from strategylab.contracts import (
+    DriverLapRecord,
+    PitEvent,
+    RaceKey,
+    RaceTimelineEvent,
+    StintRecord,
+    TrackProfile,
+    WeatherSample,
+)
 
 
 class SessionBundle(BaseModel):
@@ -27,4 +35,3 @@ class BaseSourceClient(ABC):
         circuit: str,
     ) -> SessionBundle:
         raise NotImplementedError
-

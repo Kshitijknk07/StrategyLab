@@ -60,4 +60,3 @@ class LayeredStorage:
 
     def read_dataframe(self, manifest: DatasetManifest) -> pd.DataFrame:
         return pd.read_parquet(manifest.file_path)
-

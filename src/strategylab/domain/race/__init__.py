@@ -1,2 +1,1 @@
 """Race state primitives."""
-

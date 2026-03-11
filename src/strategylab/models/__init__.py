@@ -1,2 +1,1 @@
 """Predictive models for StrategyLab."""
-

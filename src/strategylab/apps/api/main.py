@@ -1,6 +1,5 @@
 from __future__ import annotations
 
-from pathlib import Path
 from typing import Any
 
 import pandas as pd
@@ -30,12 +29,12 @@ recommender = StrategyRecommender(optimizer)
 
 
 @app.get("/health")
-def healthcheck() -> dict[str, str]:
+async def healthcheck() -> dict[str, str]:
     return {"status": "ok", "env": settings.env}
 
 
 @app.post("/ingestion/sessions:refresh")
-def refresh_session(request: IngestionRefreshRequest) -> dict[str, str]:
+async def refresh_session(request: IngestionRefreshRequest) -> dict[str, str]:
     try:
         return ingestion_service.refresh(request)
     except Exception as exc:  # pragma: no cover - FastAPI error translation
@@ -43,23 +42,23 @@ def refresh_session(request: IngestionRefreshRequest) -> dict[str, str]:
 
 
 @app.get("/races/{season}/{event_name}/timeline")
-def race_timeline(season: int, event_name: str) -> list[dict[str, Any]]:
+async def race_timeline(season: int, event_name: str) -> list[dict[str, Any]]:
     return _read_latest_processed("timeline", season, event_name)
 
 
 @app.get("/races/{season}/{event_name}/driver-laps")
-def driver_laps(season: int, event_name: str) -> list[dict[str, Any]]:
+async def driver_laps(season: int, event_name: str) -> list[dict[str, Any]]:
     return _read_latest_processed("laps", season, event_name)
 
 
 @app.get("/drivers/{driver}/stints")
-def driver_stints(driver: str) -> list[dict[str, Any]]:
+async def driver_stints(driver: str) -> list[dict[str, Any]]:
     rows = _read_latest_processed("stints")
     return [row for row in rows if row.get("driver") == driver]
 
 
 @app.get("/circuits/{circuit}/profile")
-def circuit_profile(circuit: str) -> dict[str, Any]:
+async def circuit_profile(circuit: str) -> dict[str, Any]:
     rows = _read_latest_processed("track_profile")
     for row in rows:
         if row.get("circuit") == circuit:
@@ -68,16 +67,16 @@ def circuit_profile(circuit: str) -> dict[str, Any]:
 
 
 @app.post("/models/{model_name}/train")
-def train_model(model_name: str, request: TrainRequest) -> dict[str, Any]:
+async def train_model(model_name: str, request: TrainRequest) -> dict[str, Any]:
     try:
         model = get_model(model_name)
-        return model.train(request.dataset_version, request.target_column, request.model_config)
+        return model.train(request.dataset_version, request.target_column, request.training_config)
     except Exception as exc:  # pragma: no cover - FastAPI error translation
         raise HTTPException(status_code=400, detail=str(exc)) from exc
 
 
 @app.post("/models/{model_name}/evaluate")
-def evaluate_model(model_name: str, request: ModelEvaluateRequest) -> dict[str, Any]:
+async def evaluate_model(model_name: str, request: ModelEvaluateRequest) -> dict[str, Any]:
     try:
         model = get_model(model_name)
         report = model.evaluate(request.dataset_version, request.model_version)
@@ -87,7 +86,7 @@ def evaluate_model(model_name: str, request: ModelEvaluateRequest) -> dict[str, 
 
 
 @app.post("/simulation/strategy")
-def simulate_strategy(simulation_input: SimulationInput) -> dict[str, Any]:
+async def simulate_strategy(simulation_input: SimulationInput) -> dict[str, Any]:
     ranked = optimizer.compare(simulation_input)
     if not ranked:
         raise HTTPException(status_code=400, detail="No strategies supplied.")
@@ -95,12 +94,12 @@ def simulate_strategy(simulation_input: SimulationInput) -> dict[str, Any]:
 
 
 @app.post("/simulation/compare")
-def compare_strategies(simulation_input: SimulationInput) -> list[dict[str, Any]]:
+async def compare_strategies(simulation_input: SimulationInput) -> list[dict[str, Any]]:
     return [result.model_dump(mode="json") for result in optimizer.compare(simulation_input)]
 
 
 @app.post("/simulation/monte-carlo")
-def monte_carlo_forecast(simulation_input: SimulationInput) -> dict[str, Any]:
+async def monte_carlo_forecast(simulation_input: SimulationInput) -> dict[str, Any]:
     results = optimizer.compare(simulation_input)
     return {
         "race_key": simulation_input.race_key.model_dump(mode="json"),
@@ -110,7 +109,7 @@ def monte_carlo_forecast(simulation_input: SimulationInput) -> dict[str, Any]:
 
 
 @app.post("/recommendations/strategy")
-def recommend_strategy(simulation_input: SimulationInput) -> dict[str, Any]:
+async def recommend_strategy(simulation_input: SimulationInput) -> dict[str, Any]:
     try:
         recommendation = recommender.recommend(simulation_input)
         return recommendation.model_dump(mode="json")
@@ -138,4 +137,3 @@ def _read_latest_processed(
     if frame.empty:
         raise HTTPException(status_code=404, detail="No matching records found.")
     return frame.to_dict(orient="records")
-

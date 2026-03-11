@@ -12,4 +12,3 @@ def get_model(model_name: str) -> BaseTabularModel:
     if normalized in {"tyre", "tyre_deg", "tyre_degradation"}:
         return TyreDegModel()
     raise KeyError(f"Unknown model: {model_name}")
-

@@ -1,2 +1,1 @@
 """Pure racing-domain logic."""
-

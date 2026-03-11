@@ -1,2 +1,1 @@
 """Strategy-domain types."""
-

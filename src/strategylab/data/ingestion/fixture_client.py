@@ -16,4 +16,3 @@ class FixtureSourceClient(BaseSourceClient):
         if bundle.race_key.season != season or bundle.race_key.event_name != event_name:
             raise ValueError("Fixture contents do not match requested race key.")
         return bundle
-

@@ -37,4 +37,3 @@ class JolpicaSourceClient(BaseSourceClient):
                 "records_available": len(payload.get("MRData", {}).get("RaceTable", {}).get("Races", [])),
             },
         )
-

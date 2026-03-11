@@ -86,19 +86,19 @@ def build_gap_features(frame: pd.DataFrame) -> pd.DataFrame:
     if frame.empty:
         return frame
     ordered = frame.sort_values(["driver", "lap_number"]).copy()
-    ordered["lap_time_delta_to_baseline"] = (
-        ordered["lap_time_seconds"] - ordered["clean_air_baseline_seconds"].fillna(ordered["lap_time_seconds"])
+    ordered["lap_time_delta_to_baseline"] = ordered["lap_time_seconds"] - ordered["clean_air_baseline_seconds"].fillna(
+        ordered["lap_time_seconds"]
     )
     ordered["position_gain"] = ordered["position_start"] - ordered["position_end"]
     ordered["track_status_is_green"] = (ordered["track_status"] == TrackStatus.GREEN.value).astype(int)
     ordered["wet_track_flag"] = ordered["wet_track"].astype(int)
     ordered["pit_flag"] = (ordered["pit_in"] | ordered["pit_out"]).astype(int)
     ordered["stint_progress"] = ordered.groupby(["driver", "stint_number"]).cumcount() + 1
-    ordered["rolling_driver_pace"] = (
-        ordered.groupby("driver")["lap_time_seconds"].transform(lambda series: series.rolling(3, min_periods=1).mean())
+    ordered["rolling_driver_pace"] = ordered.groupby("driver")["lap_time_seconds"].transform(
+        lambda series: series.rolling(3, min_periods=1).mean()
     )
-    ordered["rolling_team_pace"] = (
-        ordered.groupby("constructor")["lap_time_seconds"].transform(lambda series: series.rolling(3, min_periods=1).mean())
+    ordered["rolling_team_pace"] = ordered.groupby("constructor")["lap_time_seconds"].transform(
+        lambda series: series.rolling(3, min_periods=1).mean()
     )
     gap_map = defaultdict(float)
     for idx, row in ordered.iterrows():

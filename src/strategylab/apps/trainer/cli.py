@@ -42,4 +42,3 @@ def _jsonable(payload):
     if hasattr(payload, "model_dump"):
         return payload.model_dump(mode="json")
     return payload
-

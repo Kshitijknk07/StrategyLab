@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+from datetime import UTC, datetime
 from importlib.util import find_spec
 from typing import Any
 
@@ -145,7 +146,7 @@ class FastF1SourceClient(BaseSourceClient):
                 WeatherSample(
                     race_key=race_key,
                     lap_number=idx + 1,
-                    timestamp_utc=row.get("Time", pd.Timestamp.utcnow()).to_pydatetime(),
+                    timestamp_utc=row.get("Time", pd.Timestamp(datetime.now(UTC))).to_pydatetime(),
                     air_temp_c=float(row.get("AirTemp") or 25.0),
                     track_temp_c=float(row.get("TrackTemp") or 35.0),
                     humidity_pct=float(row.get("Humidity") or 45.0),
@@ -215,4 +216,3 @@ def _seconds(value: Any) -> float | None:
 
 def track_profile_drs_proxy(track_status: TrackStatus, driver: str) -> bool:
     return track_status is TrackStatus.GREEN and bool(driver)
-

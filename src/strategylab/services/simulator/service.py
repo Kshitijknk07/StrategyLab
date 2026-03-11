@@ -1,9 +1,9 @@
 from __future__ import annotations
 
 from collections import Counter
+from collections.abc import Iterable
 from math import exp
 from statistics import mean, pstdev
-from typing import Iterable
 
 import numpy as np
 
@@ -231,9 +231,7 @@ class RaceSimulator:
         if gap_to_ahead < 1.8 and state.position > 1 and track_status is TrackStatus.GREEN:
             traffic_penalty = (1.8 - gap_to_ahead) * state.traffic_sensitivity * (0.8 + track.overtaking_difficulty)
             state.traffic_loss_seconds += traffic_penalty
-        weather_penalty = weather * (
-            2.4 if state.compound in {Compound.SOFT, Compound.MEDIUM, Compound.HARD} else 0.9
-        )
+        weather_penalty = weather * (2.4 if state.compound in {Compound.SOFT, Compound.MEDIUM, Compound.HARD} else 0.9)
         status_penalty = 0.0
         if track_status is TrackStatus.VSC:
             status_penalty = 12.0
@@ -273,9 +271,7 @@ class RaceSimulator:
             pace_delta = ahead.baseline_pace_seconds - behind.baseline_pace_seconds
             if gap > 1.0 or pace_delta <= 0:
                 continue
-            pass_probability = 1.0 / (
-                1.0 + exp(-(pace_delta * 3.0 + behind.overtake_skill - overtaking_difficulty))
-            )
+            pass_probability = 1.0 / (1.0 + exp(-(pace_delta * 3.0 + behind.overtake_skill - overtaking_difficulty)))
             if rng.random() < pass_probability:
                 behind.cumulative_time_seconds = ahead.cumulative_time_seconds - 0.15
                 ahead.cumulative_time_seconds += 0.05
@@ -301,4 +297,3 @@ def _undercut_gain(candidate: StrategyCandidate) -> float:
     if first <= 22:
         return 0.8
     return 0.4
-
