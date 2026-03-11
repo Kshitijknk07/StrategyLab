@@ -1,2 +1,2 @@
-"""Race-state primitives."""
+"""Race state primitives."""
 

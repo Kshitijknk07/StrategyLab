@@ -1,32 +1,34 @@
-"""Tyre degradation model."""
-
 from __future__ import annotations
 
-from strategylab.models.base import LocalTabularModel
+from strategylab.models.base import BaseTabularModel
 
 
-class TyreDegradationModel(LocalTabularModel):
-    model_name = "tyre_degradation"
+class TyreDegModel(BaseTabularModel):
+    @property
+    def model_name(self) -> str:
+        return "tyre_degradation"
 
     @property
-    def categorical_features(self) -> list[str]:
-        return ["driver", "constructor", "race_circuit", "tyre_compound", "track_status"]
+    def default_target(self) -> str:
+        return "lap_time_delta_to_baseline"
 
     @property
-    def numeric_features(self) -> list[str]:
+    def categorical_columns(self) -> list[str]:
+        return ["driver", "constructor", "compound", "event_name", "circuit"]
+
+    @property
+    def numeric_columns(self) -> list[str]:
         return [
+            "season",
             "lap_number",
             "tyre_age_laps",
-            "stint_number",
-            "stint_phase_ratio",
-            "track_temperature_c",
-            "air_temperature_c",
-            "humidity_pct",
-            "traffic_density_proxy",
+            "traffic_density",
+            "track_temp_c",
+            "air_temp_c",
+            "qualifying_pace_proxy",
+            "team_strength_proxy",
+            "stint_progress",
             "circuit_degradation_class",
-            "fuel_phase_proxy",
+            "wet_track_flag",
+            "track_status_is_green",
         ]
-
-    @property
-    def target_column(self) -> str:
-        return "degradation_target_seconds"

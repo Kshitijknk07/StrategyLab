@@ -72,6 +72,14 @@ class IngestionService:
         self.storage.write_dataframe(
             DatasetLayer.PROCESSED,
             version,
+            "pit_events",
+            self.normalizer.pit_event_frame(bundle),
+            f"Processed pit events for {bundle.race_key.slug}",
+            source_sessions,
+        )
+        self.storage.write_dataframe(
+            DatasetLayer.PROCESSED,
+            version,
             "weather",
             self.normalizer.weather_frame(bundle),
             f"Processed weather for {bundle.race_key.slug}",

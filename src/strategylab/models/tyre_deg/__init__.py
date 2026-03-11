@@ -1,2 +1,2 @@
-"""Tyre degradation model package."""
+"""Tyre degradation models."""
 

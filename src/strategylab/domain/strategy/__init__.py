@@ -1,2 +1,2 @@
-"""Strategy types and helpers."""
+"""Strategy-domain types."""
 

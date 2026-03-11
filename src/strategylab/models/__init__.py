@@ -1,2 +1,2 @@
-"""Predictive model packages."""
+"""Predictive models for StrategyLab."""
 

@@ -1,2 +1,2 @@
-"""Core domain logic for race simulation and strategy."""
+"""Pure racing-domain logic."""
 

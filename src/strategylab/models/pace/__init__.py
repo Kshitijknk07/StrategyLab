@@ -1,2 +1,2 @@
-"""Baseline pace model package."""
+"""Baseline pace models."""
 

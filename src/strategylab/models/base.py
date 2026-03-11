@@ -1,197 +1,217 @@
-"""Shared base classes for local tabular models."""
-
 from __future__ import annotations
 
 from abc import ABC, abstractmethod
-from dataclasses import dataclass
-from datetime import datetime, timezone
-from hashlib import sha1
-from pathlib import Path
+from datetime import UTC, datetime
+from math import sqrt
 from typing import Any
+from uuid import uuid4
 
-import joblib
 import numpy as np
 import pandas as pd
-from pydantic import BaseModel
 from sklearn.compose import ColumnTransformer
-from sklearn.ensemble import GradientBoostingRegressor
 from sklearn.impute import SimpleImputer
 from sklearn.metrics import mean_absolute_error, mean_squared_error
 from sklearn.pipeline import Pipeline
+from sklearn.ensemble import GradientBoostingRegressor
 from sklearn.preprocessing import OneHotEncoder
 
-from strategylab.data.schemas import EvaluationReport, ModelPrediction, PredictionInterval
+from strategylab.contracts import EvaluationMetric, EvaluationReport, ModelPrediction, PredictionInterval
+from strategylab.data.feature_store import FeatureStore
 from strategylab.infra.config import get_settings
+from strategylab.infra.registry import JsonManifestStore, LocalModelRegistry
 
 
-@dataclass(slots=True)
-class TrainingArtifact:
-    model_name: str
-    model_version: str
-    dataset_version: str
-    feature_version: str
-    model_path: Path
-    metrics: dict[str, float]
-
-
-class BatchPrediction(BaseModel):
-    predictions: list[ModelPrediction]
-
-
-class LocalTabularModel(ABC):
-    """Train and serve local gradient-boosting tabular models."""
-
-    model_name = "base_model"
-
-    def __init__(self) -> None:
+class BaseTabularModel(ABC):
+    def __init__(
+        self,
+        feature_store: FeatureStore | None = None,
+        registry: LocalModelRegistry | None = None,
+        manifest_store: JsonManifestStore | None = None,
+    ) -> None:
+        self.feature_store = feature_store or FeatureStore()
+        self.registry = registry or LocalModelRegistry()
+        self.manifest_store = manifest_store or JsonManifestStore()
         self.settings = get_settings()
-        self.pipeline: Pipeline | None = None
-        self.model_version: str | None = None
-        self.dataset_version: str | None = None
-        self.feature_version: str | None = None
-        self.residual_sigma: float = 0.0
 
     @property
     @abstractmethod
-    def categorical_features(self) -> list[str]:
-        """Categorical features used by the model."""
+    def model_name(self) -> str:
+        raise NotImplementedError
 
     @property
     @abstractmethod
-    def numeric_features(self) -> list[str]:
-        """Numeric features used by the model."""
+    def default_target(self) -> str:
+        raise NotImplementedError
 
     @property
     @abstractmethod
-    def target_column(self) -> str:
-        """Training target column."""
+    def categorical_columns(self) -> list[str]:
+        raise NotImplementedError
 
     @property
-    def feature_columns(self) -> list[str]:
-        return [*self.categorical_features, *self.numeric_features]
+    @abstractmethod
+    def numeric_columns(self) -> list[str]:
+        raise NotImplementedError
 
     def train(
         self,
-        frame: pd.DataFrame,
-        *,
         dataset_version: str,
-        feature_version: str,
-    ) -> TrainingArtifact:
-        features = frame[self.feature_columns]
-        target = frame[self.target_column]
-        self.pipeline = self._build_pipeline()
-        self.pipeline.fit(features, target)
-
-        fitted = self.pipeline.predict(features)
-        self.residual_sigma = float(np.std(target - fitted))
-        self.dataset_version = dataset_version
-        self.feature_version = feature_version
-        self.model_version = self._build_model_version(dataset_version, feature_version, len(frame))
-
-        model_dir = self.settings.model_root / self.model_name / self.model_version
-        model_dir.mkdir(parents=True, exist_ok=True)
-        model_path = model_dir / "model.joblib"
-        joblib.dump(
-            {
-                "pipeline": self.pipeline,
-                "model_version": self.model_version,
-                "dataset_version": dataset_version,
-                "feature_version": feature_version,
-                "residual_sigma": self.residual_sigma,
-            },
-            model_path,
-        )
-
-        metrics = self._metrics(target.to_numpy(), fitted)
-        return TrainingArtifact(
+        target_column: str | None = None,
+        model_config: dict[str, Any] | None = None,
+    ) -> dict[str, Any]:
+        frame, manifest = self.feature_store.load_dataset(dataset_version)
+        target = target_column or self.default_target
+        prepared = self.prepare_training_frame(frame, target)
+        if prepared.empty:
+            raise ValueError(f"No usable training rows available for {self.model_name}.")
+        train_frame, validation_frame = self._time_split(prepared)
+        pipeline = self._build_pipeline(model_config or {})
+        pipeline.fit(train_frame[self.feature_columns], train_frame[target])
+        validation_predictions = pipeline.predict(validation_frame[self.feature_columns])
+        residual_std = float(np.std(validation_frame[target] - validation_predictions))
+        report = EvaluationReport(
             model_name=self.model_name,
-            model_version=self.model_version,
+            model_version=self._new_version(),
             dataset_version=dataset_version,
-            feature_version=feature_version,
-            model_path=model_path,
-            metrics=metrics,
+            metrics=[
+                EvaluationMetric(name="mae", value=float(mean_absolute_error(validation_frame[target], validation_predictions))),
+                EvaluationMetric(name="rmse", value=float(sqrt(mean_squared_error(validation_frame[target], validation_predictions)))),
+            ],
+            notes=[f"Trained on {len(train_frame)} rows; validated on {len(validation_frame)} rows."],
         )
-
-    def load(self, model_path: str | Path) -> None:
-        payload = joblib.load(model_path)
-        self.pipeline = payload["pipeline"]
-        self.model_version = payload["model_version"]
-        self.dataset_version = payload["dataset_version"]
-        self.feature_version = payload["feature_version"]
-        self.residual_sigma = payload["residual_sigma"]
-
-    def predict(self, frame: pd.DataFrame) -> BatchPrediction:
-        if self.pipeline is None or self.model_version is None or self.dataset_version is None or self.feature_version is None:
-            raise RuntimeError("Model is not loaded or trained.")
-        values = self.pipeline.predict(frame[self.feature_columns])
-        interval = PredictionInterval(
-            lower=float(-1.96 * self.residual_sigma),
-            upper=float(1.96 * self.residual_sigma),
-            confidence=0.95,
+        payload = {
+            "model_name": self.model_name,
+            "model_version": report.model_version,
+            "dataset_version": dataset_version,
+            "target_column": target,
+            "feature_columns": self.feature_columns,
+            "pipeline": pipeline,
+            "residual_std": residual_std,
+            "trained_at": datetime.now(UTC).isoformat(),
+            "metrics": [metric.model_dump() for metric in report.metrics],
+        }
+        artifact_path = self.registry.save(self.model_name, report.model_version, payload)
+        self.registry.save_metadata(
+            self.model_name,
+            report.model_version,
+            {
+                "artifact_path": str(artifact_path),
+                "dataset_version": dataset_version,
+                "target_column": target,
+                "metrics": [metric.model_dump() for metric in report.metrics],
+            },
         )
-        predictions = [
-            ModelPrediction(
-                value=float(value),
-                interval=PredictionInterval(
-                    lower=float(value + interval.lower),
-                    upper=float(value + interval.upper),
-                    confidence=interval.confidence,
-                ),
-                model_version=self.model_version,
-                dataset_version=self.dataset_version,
-                feature_version=self.feature_version,
-            )
+        self.manifest_store.save_evaluation_report(report)
+        return {
+            "model_name": self.model_name,
+            "model_version": report.model_version,
+            "dataset_version": dataset_version,
+            "artifact_path": str(artifact_path),
+            "metrics": report.metrics,
+            "target_column": target,
+            "source_manifest": manifest.file_path,
+        }
+
+    def predict(self, model_version: str, frame: pd.DataFrame, dataset_version: str | None = None) -> ModelPrediction:
+        payload = self.registry.load(self.model_name, model_version)
+        prepared = self.prepare_inference_frame(frame)
+        values = payload["pipeline"].predict(prepared[self.feature_columns])
+        residual_std = float(payload.get("residual_std", 0.0))
+        intervals = [
+            PredictionInterval(low=float(value - 1.96 * residual_std), high=float(value + 1.96 * residual_std))
             for value in values
         ]
-        return BatchPrediction(predictions=predictions)
-
-    def evaluate(self, frame: pd.DataFrame) -> EvaluationReport:
-        if self.pipeline is None or self.model_version is None or self.dataset_version is None:
-            raise RuntimeError("Model is not loaded or trained.")
-        features = frame[self.feature_columns]
-        target = frame[self.target_column]
-        predicted = self.pipeline.predict(features)
-        metrics = self._metrics(target.to_numpy(), predicted)
-        return EvaluationReport(
+        return ModelPrediction(
             model_name=self.model_name,
-            model_version=self.model_version,
-            dataset_version=self.dataset_version,
-            metrics=metrics,
-            generated_at=datetime.now(tz=timezone.utc),
+            model_version=model_version,
+            dataset_version=dataset_version or payload["dataset_version"],
+            values=[float(value) for value in values],
+            intervals=intervals,
         )
 
-    def _build_pipeline(self) -> Pipeline:
-        preprocessor = ColumnTransformer(
-            transformers=[
-                (
-                    "categorical",
-                    Pipeline(
-                        [
-                            ("imputer", SimpleImputer(strategy="most_frequent")),
-                            ("encoder", OneHotEncoder(handle_unknown="ignore")),
-                        ]
-                    ),
-                    self.categorical_features,
-                ),
-                (
-                    "numeric",
-                    Pipeline([("imputer", SimpleImputer(strategy="median"))]),
-                    self.numeric_features,
-                ),
+    def evaluate(self, dataset_version: str, model_version: str) -> EvaluationReport:
+        frame, _ = self.feature_store.load_dataset(dataset_version)
+        payload = self.registry.load(self.model_name, model_version)
+        target = payload["target_column"]
+        prepared = self.prepare_training_frame(frame, target)
+        predictions = payload["pipeline"].predict(prepared[self.feature_columns])
+        report = EvaluationReport(
+            model_name=self.model_name,
+            model_version=model_version,
+            dataset_version=dataset_version,
+            metrics=[
+                EvaluationMetric(name="mae", value=float(mean_absolute_error(prepared[target], predictions))),
+                EvaluationMetric(name="rmse", value=float(sqrt(mean_squared_error(prepared[target], predictions)))),
+            ],
+            notes=["Evaluation run against the full dataset version."],
+        )
+        self.manifest_store.save_evaluation_report(report)
+        return report
+
+    @property
+    def feature_columns(self) -> list[str]:
+        return [*self.categorical_columns, *self.numeric_columns]
+
+    def prepare_training_frame(self, frame: pd.DataFrame, target_column: str) -> pd.DataFrame:
+        working = frame.copy()
+        for feature in self.feature_columns:
+            if feature not in working.columns:
+                working[feature] = np.nan
+        if target_column not in working.columns:
+            raise ValueError(f"Target column '{target_column}' not present in dataset.")
+        working = working.dropna(subset=[target_column])
+        working = working.sort_values(self._sort_columns(working)).reset_index(drop=True)
+        return working
+
+    def prepare_inference_frame(self, frame: pd.DataFrame) -> pd.DataFrame:
+        working = frame.copy()
+        for feature in self.feature_columns:
+            if feature not in working.columns:
+                working[feature] = np.nan
+        return working
+
+    def _build_pipeline(self, model_config: dict[str, Any]) -> Pipeline:
+        categorical_pipeline = Pipeline(
+            steps=[
+                ("imputer", SimpleImputer(strategy="most_frequent")),
+                ("encoder", OneHotEncoder(handle_unknown="ignore", sparse_output=False)),
             ]
         )
-        regressor = GradientBoostingRegressor(random_state=self.settings.random_seed)
-        return Pipeline([("preprocessor", preprocessor), ("regressor", regressor)])
+        numeric_pipeline = Pipeline(
+            steps=[
+                ("imputer", SimpleImputer(strategy="median")),
+            ]
+        )
+        preprocessor = ColumnTransformer(
+            transformers=[
+                ("categorical", categorical_pipeline, self.categorical_columns),
+                ("numeric", numeric_pipeline, self.numeric_columns),
+            ]
+        )
+        estimator = GradientBoostingRegressor(
+            random_state=int(model_config.get("random_state", self.settings.random_seed)),
+            learning_rate=float(model_config.get("learning_rate", 0.05)),
+            n_estimators=int(model_config.get("n_estimators", 250)),
+            max_depth=int(model_config.get("max_depth", 3)),
+        )
+        return Pipeline(
+            steps=[
+                ("preprocessor", preprocessor),
+                ("estimator", estimator),
+            ]
+        )
 
-    def _build_model_version(self, dataset_version: str, feature_version: str, row_count: int) -> str:
-        digest = sha1(
-            f"{self.model_name}-{dataset_version}-{feature_version}-{row_count}".encode("utf-8")
-        ).hexdigest()
-        return digest[:12]
+    def _time_split(self, frame: pd.DataFrame) -> tuple[pd.DataFrame, pd.DataFrame]:
+        if len(frame) < 10:
+            return frame, frame
+        split_index = max(int(len(frame) * 0.8), 1)
+        train = frame.iloc[:split_index].copy()
+        validation = frame.iloc[split_index:].copy()
+        return train, validation
 
-    @staticmethod
-    def _metrics(actual: np.ndarray, predicted: np.ndarray) -> dict[str, float]:
-        rmse = mean_squared_error(actual, predicted) ** 0.5
-        mae = mean_absolute_error(actual, predicted)
-        return {"rmse": float(rmse), "mae": float(mae)}
+    def _sort_columns(self, frame: pd.DataFrame) -> list[str]:
+        candidates = [column for column in ("season", "event_name", "lap_number", "driver") if column in frame.columns]
+        return candidates or list(frame.columns[:1])
 
+    def _new_version(self) -> str:
+        return datetime.now(UTC).strftime("%Y%m%d%H%M%S") + "_" + uuid4().hex[:8]

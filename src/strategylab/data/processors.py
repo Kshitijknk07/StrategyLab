@@ -55,20 +55,31 @@ class RaceSessionNormalizer:
         return frame
 
     def stint_frame(self, bundle: SessionBundle) -> pd.DataFrame:
-        return pd.DataFrame(stint.model_dump(mode="json") for stint in bundle.stints)
+        return self._flatten_race_frame(pd.DataFrame(stint.model_dump(mode="json") for stint in bundle.stints))
 
     def pit_event_frame(self, bundle: SessionBundle) -> pd.DataFrame:
-        return pd.DataFrame(event.model_dump(mode="json") for event in bundle.pit_events)
+        return self._flatten_race_frame(pd.DataFrame(event.model_dump(mode="json") for event in bundle.pit_events))
 
     def weather_frame(self, bundle: SessionBundle) -> pd.DataFrame:
-        return pd.DataFrame(sample.model_dump(mode="json") for sample in bundle.weather_samples)
+        return self._flatten_race_frame(
+            pd.DataFrame(sample.model_dump(mode="json") for sample in bundle.weather_samples)
+        )
 
     def timeline_frame(self, bundle: SessionBundle) -> pd.DataFrame:
         timeline = self.build_timeline(bundle)
-        return pd.DataFrame(event.model_dump(mode="json") for event in timeline)
+        return self._flatten_race_frame(pd.DataFrame(event.model_dump(mode="json") for event in timeline))
 
     def track_profile_frame(self, bundle: SessionBundle) -> pd.DataFrame:
         return pd.DataFrame([bundle.track_profile.model_dump(mode="json")])
+
+    def _flatten_race_frame(self, frame: pd.DataFrame) -> pd.DataFrame:
+        if frame.empty or "race_key" not in frame.columns:
+            return frame
+        frame["session_type"] = frame["race_key"].map(lambda rk: rk["session_type"])
+        frame["event_name"] = frame["race_key"].map(lambda rk: rk["event_name"])
+        frame["circuit"] = frame["race_key"].map(lambda rk: rk["circuit"])
+        frame["season"] = frame["race_key"].map(lambda rk: rk["season"])
+        return frame.drop(columns=["race_key"])
 
 
 def build_gap_features(frame: pd.DataFrame) -> pd.DataFrame:
@@ -96,4 +107,3 @@ def build_gap_features(frame: pd.DataFrame) -> pd.DataFrame:
         ordered.at[idx, "gap_to_ahead_seconds"] = ahead_gap
         gap_map[key] = row["gap_to_leader_seconds"] or 0.0
     return ordered
-
